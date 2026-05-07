@@ -21,8 +21,16 @@ export async function POST(request) {
 
     const data = await response.json();
 
-    if (data.error) {
-      return NextResponse.json({ error: data.error.message }, { status: 500 });
+    if (!response.ok || data.error) {
+      console.error("Anthropic API error", {
+        status: response.status,
+        hasApiKey: Boolean(process.env.ANTHROPIC_API_KEY),
+        error: data.error,
+      });
+      return NextResponse.json(
+        { error: data.error?.message || `Upstream ${response.status}` },
+        { status: 500 }
+      );
     }
 
     const text = data.content
@@ -32,6 +40,7 @@ export async function POST(request) {
 
     return NextResponse.json({ text: text || "..." });
   } catch (err) {
+    console.error("Chat route exception", err);
     return NextResponse.json({ error: "서버 오류가 발생했습니다." }, { status: 500 });
   }
 }
