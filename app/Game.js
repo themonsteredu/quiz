@@ -140,8 +140,14 @@ export default function Game() {
   const [questionCount, setQuestionCount] = useState(0);
   const [hintIndex, setHintIndex] = useState(0);
   const [solved, setSolved] = useState(false);
+  const [scores, setScores] = useState({});
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  const computeScore = (questions, hintsUsed) =>
+    Math.max(20, 100 - questions * 5 - hintsUsed * 15);
+  const totalScore = Object.values(scores).reduce((sum, s) => sum + s.score, 0);
+  const allSolved = Object.keys(scores).length === CHARACTERS.length;
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -206,11 +212,18 @@ export default function Game() {
     setQuestionCount((prev) => prev + 1);
 
     if (checkAnswer(text)) {
+      const questions = questionCount + 1;
+      const hintsUsed = Math.max(0, hintIndex - 1);
+      const score = computeScore(questions, hintsUsed);
+      setScores((prev) => ({
+        ...prev,
+        [character.id]: { score, questions, hintsUsed },
+      }));
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          text: `오호, 그대가 마침내 알아냈구나! 그렇소, 바로 ${character.answer}이오. 🎉\n\n${questionCount + 1}번의 질문 만에 맞혔소!`,
+          text: `오호, 그대가 마침내 알아냈구나! 그렇소, 바로 ${character.answer}이오. 🎉\n\n질문 ${questions}회, 힌트 ${hintsUsed}개 사용 — 점수 ${score}점!`,
         },
       ]);
       setSolved(true);
@@ -266,6 +279,146 @@ export default function Game() {
     }
   };
 
+  // ─── Complete Screen ───
+  if (screen === "complete") {
+    const maxScore = CHARACTERS.length * 100;
+    const grade =
+      totalScore >= maxScore * 0.9
+        ? { label: "역사 박사", emoji: "🏆" }
+        : totalScore >= maxScore * 0.7
+        ? { label: "역사 통", emoji: "🥇" }
+        : totalScore >= maxScore * 0.5
+        ? { label: "역사 견습생", emoji: "🥈" }
+        : { label: "도전자", emoji: "🥉" };
+
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: `linear-gradient(170deg, ${palette.bg} 0%, #0f0d0b 100%)`,
+          color: palette.text,
+          fontFamily: fonts.body,
+          padding: "20px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+        }}
+      >
+        <div style={{ maxWidth: 500, width: "100%", margin: "0 auto" }}>
+          <div style={{ textAlign: "center", padding: "40px 0 24px" }}>
+            <div style={{ fontSize: 64, marginBottom: 12 }}>{grade.emoji}</div>
+            <h1
+              style={{
+                fontFamily: fonts.display,
+                fontSize: 26,
+                fontWeight: 700,
+                color: palette.accent,
+                margin: "0 0 8px",
+              }}
+            >
+              모든 인물을 풀었습니다!
+            </h1>
+            <p style={{ color: palette.textDim, fontSize: 14, margin: 0 }}>
+              칭호:{" "}
+              <span style={{ color: palette.text, fontWeight: 600 }}>{grade.label}</span>
+            </p>
+          </div>
+
+          <div
+            style={{
+              background: palette.card,
+              border: `1px solid ${palette.accent}55`,
+              borderRadius: 16,
+              padding: "24px 20px",
+              textAlign: "center",
+              marginBottom: 20,
+            }}
+          >
+            <div style={{ color: palette.textDim, fontSize: 13, marginBottom: 6 }}>
+              최종 점수
+            </div>
+            <div
+              style={{
+                fontFamily: fonts.display,
+                fontSize: 48,
+                fontWeight: 700,
+                color: palette.accent,
+                lineHeight: 1,
+              }}
+            >
+              {totalScore}
+              <span style={{ fontSize: 20, color: palette.textDim, fontWeight: 400 }}>
+                {" "}
+                / {maxScore}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
+            {CHARACTERS.map((char) => {
+              const r = scores[char.id];
+              return (
+                <div
+                  key={char.id}
+                  style={{
+                    background: palette.card,
+                    border: `1px solid ${palette.border}`,
+                    borderRadius: 10,
+                    padding: "12px 16px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontFamily: fonts.display,
+                        fontWeight: 600,
+                        fontSize: 15,
+                      }}
+                    >
+                      {char.answer}
+                    </div>
+                    <div style={{ color: palette.textDim, fontSize: 12, marginTop: 2 }}>
+                      질문 {r.questions}회 · 힌트 {r.hintsUsed}개
+                    </div>
+                  </div>
+                  <div
+                    style={{ color: palette.accent, fontSize: 18, fontWeight: 600 }}
+                  >
+                    {r.score}점
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={() => {
+              setScores({});
+              resetGame();
+            }}
+            style={{
+              width: "100%",
+              padding: "14px",
+              borderRadius: 12,
+              border: "none",
+              background: palette.accent,
+              color: palette.bg,
+              fontSize: 15,
+              fontFamily: fonts.body,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            🔄 처음부터 다시 도전
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ─── Home Screen ───
   if (screen === "home") {
     return (
@@ -301,53 +454,117 @@ export default function Game() {
             </p>
           </div>
 
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 12,
+              padding: "0 4px",
+              fontSize: 13,
+              color: palette.textDim,
+            }}
+          >
+            <span>
+              진행도{" "}
+              <span style={{ color: palette.accent, fontWeight: 600 }}>
+                {Object.keys(scores).length}/{CHARACTERS.length}
+              </span>
+            </span>
+            {Object.keys(scores).length > 0 && (
+              <span>
+                누적 점수{" "}
+                <span style={{ color: palette.accent, fontWeight: 600 }}>{totalScore}</span>점
+              </span>
+            )}
+          </div>
+
+          {allSolved && (
+            <button
+              onClick={() => setScreen("complete")}
+              style={{
+                width: "100%",
+                padding: "14px",
+                marginBottom: 12,
+                borderRadius: 12,
+                border: "none",
+                background: palette.accent,
+                color: palette.bg,
+                fontSize: 15,
+                fontFamily: fonts.body,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              🏆 최종 결과 보기
+            </button>
+          )}
+
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {CHARACTERS.map((char, idx) => (
-              <button
-                key={char.id}
-                onClick={() => startGame(char)}
-                style={{
-                  background: palette.card,
-                  border: `1px solid ${palette.border}`,
-                  borderRadius: 12,
-                  padding: "18px 20px",
-                  color: palette.text,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  fontFamily: fonts.body,
-                  fontSize: 15,
-                  transition: "all 0.2s",
-                  textAlign: "left",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = palette.cardHover;
-                  e.currentTarget.style.borderColor = palette.accent;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = palette.card;
-                  e.currentTarget.style.borderColor = palette.border;
-                }}
-              >
-                <div>
+            {CHARACTERS.map((char, idx) => {
+              const result = scores[char.id];
+              const done = Boolean(result);
+              return (
+                <button
+                  key={char.id}
+                  onClick={() => !done && startGame(char)}
+                  disabled={done}
+                  style={{
+                    background: done ? palette.bg : palette.card,
+                    border: `1px solid ${done ? palette.accentDim + "55" : palette.border}`,
+                    borderRadius: 12,
+                    padding: "18px 20px",
+                    color: palette.text,
+                    cursor: done ? "default" : "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    fontFamily: fonts.body,
+                    fontSize: 15,
+                    transition: "all 0.2s",
+                    textAlign: "left",
+                    opacity: done ? 0.75 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (done) return;
+                    e.currentTarget.style.background = palette.cardHover;
+                    e.currentTarget.style.borderColor = palette.accent;
+                  }}
+                  onMouseLeave={(e) => {
+                    if (done) return;
+                    e.currentTarget.style.background = palette.card;
+                    e.currentTarget.style.borderColor = palette.border;
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontFamily: fonts.display,
+                        fontWeight: 600,
+                        fontSize: 17,
+                        marginBottom: 4,
+                      }}
+                    >
+                      {done ? `✓ ${char.answer}` : "???의 정체"}
+                    </div>
+                    <div style={{ color: palette.textDim, fontSize: 13 }}>
+                      {done
+                        ? `질문 ${result.questions}회 · 힌트 ${result.hintsUsed}개`
+                        : `${char.era} · 난이도 ${"⭐".repeat((idx % 3) + 1)}`}
+                    </div>
+                  </div>
                   <div
                     style={{
-                      fontFamily: fonts.display,
-                      fontWeight: 600,
-                      fontSize: 17,
-                      marginBottom: 4,
+                      color: palette.accent,
+                      fontSize: done ? 16 : 20,
+                      fontWeight: done ? 600 : 300,
                     }}
                   >
-                    ???의 정체
+                    {done ? `${result.score}점` : "→"}
                   </div>
-                  <div style={{ color: palette.textDim, fontSize: 13 }}>
-                    {char.era} · 난이도 {"⭐".repeat((idx % 3) + 1)}
-                  </div>
-                </div>
-                <div style={{ color: palette.accent, fontSize: 20, fontWeight: 300 }}>→</div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
 
           <div
@@ -572,7 +789,7 @@ export default function Game() {
       {solved && (
         <div style={{ padding: "8px 16px", flexShrink: 0 }}>
           <button
-            onClick={resetGame}
+            onClick={() => (allSolved ? setScreen("complete") : resetGame())}
             style={{
               width: "100%",
               padding: "12px",
@@ -586,7 +803,7 @@ export default function Game() {
               fontWeight: 600,
             }}
           >
-            🔄 다른 인물 도전하기
+            {allSolved ? "🏆 최종 결과 보기" : "🔄 다른 인물 도전하기"}
           </button>
         </div>
       )}
