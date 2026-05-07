@@ -22,11 +22,10 @@ export async function POST(request) {
     const data = await response.json();
 
     if (!response.ok || data.error) {
-      console.error("Anthropic API error", {
-        status: response.status,
-        hasApiKey: Boolean(process.env.ANTHROPIC_API_KEY),
-        error: data.error,
-      });
+      const summary = `status=${response.status} hasKey=${Boolean(
+        process.env.ANTHROPIC_API_KEY
+      )} type=${data.error?.type} msg=${data.error?.message}`;
+      console.error("ANTHROPIC_FAIL " + summary);
       return NextResponse.json(
         { error: data.error?.message || `Upstream ${response.status}` },
         { status: 500 }
