@@ -219,9 +219,13 @@ export default function Game() {
     }
 
     try {
-      const conversationHistory = messages
-        .filter((m) => m.role === "user" || m.role === "assistant")
-        .map((m) => ({ role: m.role, content: m.text }));
+      const apiMessages = messages.filter(
+        (m) => m.role === "user" || m.role === "assistant"
+      );
+      const firstUserIdx = apiMessages.findIndex((m) => m.role === "user");
+      const conversationHistory = (
+        firstUserIdx >= 0 ? apiMessages.slice(firstUserIdx) : []
+      ).map((m) => ({ role: m.role, content: m.text }));
       conversationHistory.push({ role: "user", content: text });
 
       const response = await fetch("/api/chat", {
